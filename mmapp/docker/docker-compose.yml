@@ -1,0 +1,71 @@
+services:
+  tomcat:
+    container_name: tomcat-web-demo
+    image: tomcat
+    networks:
+      - web-demo_network
+    depends_on:
+      - pgdb
+    volumes:
+      - ../mmapp-view/target/mmapp-view-0.0.1-SNAPSHOT.war:/usr/local/tomcat/webapps/ROOT.war
+    ports:
+      - "8080:8080"
+#      - "61000:61000"
+#      - "80:80"
+#      - "443:443"
+
+    expose:
+      - 61000
+
+    environment:
+      _JAVA_OPTIONS: "-Xms256m -Xmx384m -Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=61000"
+
+  pgdb:
+    container_name: postgres-web-demo
+    image: postgres:17.0
+    restart: always
+    volumes:
+      - ./db_init/create_role.sh:/docker-entrypoint-initdb.d/01-create_role.sh
+      - ./volumes/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: psql-web-demo
+      POSTGRES_PASSWORD: web-demo#4passworD
+      POSTGRES_DB: db-web-demo
+    ports:
+      - 8083:5432
+    networks:
+      - web-demo_network
+
+  sonarqube:
+    container_name: sonarqube-web-demo
+    image: sonarqube:latest
+    ports:
+      - 8082:9000
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    networks:
+      - web-demo_network
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-web-demo
+    user: root
+    ports:
+      - "8081:8080"
+      - "50000:50000" # Port pour les agents Jenkins
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock # Permet à Jenkins d'exécuter Docker
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Désactive l'assistant de configuration initial
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc.yaml
+    networks:
+      - web-demo_network
+
+networks:
+  web-demo_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  jenkins_home:
